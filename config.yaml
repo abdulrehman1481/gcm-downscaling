@@ -1,0 +1,171 @@
+# Configuration for GCM Downscaling Pipeline
+
+# Paths
+paths:
+  base: "d:\\appdev\\cep ml"
+  data: "d:\\appdev\\cep ml\\AI_GCMs"
+  processed: "d:\\appdev\\cep ml\\data\\processed"
+  models: "d:\\appdev\\cep ml\\outputs\\models"
+  downscaled: "d:\\appdev\\cep ml\\outputs\\downscaled"
+  figures: "d:\\appdev\\cep ml\\outputs\\figures"
+
+# Data processing
+data:
+  # Training period
+  start_year: 1980
+  end_year: 2014
+  
+  # Train/validation/test split
+  train_years: [1980, 2005]
+  val_years: [2006, 2010]
+  test_years: [2011, 2014]
+  
+  # Target grid (Pakistan)
+  target_resolution: 0.25  # degrees
+  lat_bounds: [23, 38]     # North
+  lon_bounds: [60, 78]     # East
+  
+  # Regridding method
+  regrid_method: "bilinear"  # Options: bilinear, conservative, nearest
+  
+  # GCM models available
+  gcm_models:
+    - "BCC-CSM2-MR"
+    - "CAMS-CSM1-0"
+    - "CanESM5"
+    - "CESM2"
+    - "CESM2-WACCM"
+    - "EC-Earth3"
+    - "IPSL-CM6A-LR"
+    - "MIROC6"
+    - "MRI-ESM2-0"
+  
+  # Scenarios
+  scenarios:
+    - "hist"
+    - "ssp126"
+    - "ssp585"
+
+# Model configurations
+models:
+  temperature:
+    algorithm: "RandomForest"
+    hyperparameters:
+      n_estimators: 200
+      max_depth: 20
+      min_samples_split: 5
+      min_samples_leaf: 2
+      n_jobs: -1
+      random_state: 42
+      verbose: 1
+    
+    features:
+      - "gcm_tas_degC"
+      - "gcm_pr_mm"
+      - "lat"
+      - "lon"
+      - "month_sin"
+      - "month_cos"
+    
+    target: "era_t2m_degC"
+  
+  precipitation:
+    algorithm: "GradientBoosting"
+    hyperparameters:
+      n_estimators: 300
+      learning_rate: 0.05
+      max_depth: 3
+      min_samples_split: 5
+      min_samples_leaf: 2
+      subsample: 0.8
+      random_state: 42
+      verbose: 1
+    
+    features:
+      - "gcm_pr_log1p"
+      - "gcm_tas_degC"
+      - "lat"
+      - "lon"
+      - "month_sin"
+      - "month_cos"
+    
+    target: "era_tp_log1p"
+
+# Unit conversions
+conversions:
+  temperature:
+    gcm: "K to degC"        # Subtract 273.15
+    era5: "K to degC"       # Subtract 273.15
+    cru: "already degC"
+  
+  precipitation:
+    gcm: "kg m-2 s-1 to mm/month"  # Multiply by 30*24*3600
+    era5: "m to mm"                 # Multiply by 1000
+    cru: "already mm/month"
+
+# Evaluation
+evaluation:
+  # Test period for evaluation
+  test_period: [2011, 2014]
+  
+  # Seasons for climatology analysis
+  seasons:
+    - "DJF"  # Winter
+    - "MAM"  # Spring
+    - "JJA"  # Summer
+    - "SON"  # Autumn
+  
+  # Sample points for time series validation (lat, lon)
+  sample_points:
+    - [30.0, 70.0]  # Lahore region
+    - [33.5, 73.0]  # Islamabad region
+    - [25.0, 67.0]  # Karachi region
+  
+  # Metrics to compute
+  metrics:
+    - "RMSE"
+    - "MAE"
+    - "R2"
+    - "Bias"
+    - "Spatial_Correlation"
+    - "Pattern_Correlation"
+
+# Computational settings
+computation:
+  # Chunk size for xarray operations (helps with memory)
+  time_chunk_size: 120  # months
+  
+  # Number of parallel jobs
+  n_jobs: -1  # Use all CPUs
+  
+  # Memory management
+  close_datasets: true  # Close datasets after loading
+  
+  # Compression for output NetCDF files
+  compression:
+    enabled: true
+    level: 5  # 1-9, higher = more compression
+    dtype: "float32"  # Save as 32-bit to reduce size
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  save_to_file: true
+  log_dir: "logs"
+
+# Reproducibility
+random_seed: 42
+
+# Feature engineering
+features:
+  # Cyclic encoding for months
+  use_cyclic_month: true
+  
+  # Include year as feature (for trend capture)
+  use_year: false
+  
+  # Log transform for precipitation
+  use_log_transform: true
+  
+  # Additional predictors
+  include_cru: false  # Include CRU as additional predictors
